@@ -18,9 +18,12 @@ package karanashev.niosampleserver;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -31,6 +34,7 @@ import java.util.Set;
  */
 public class EchoServer {
     private final int port;
+    private final ByteBuffer echoBuffer = ByteBuffer.allocate(1024);
 
     public EchoServer(int port) {
         this.port = port;
@@ -55,8 +59,25 @@ public class EchoServer {
                 while (iterator.hasNext()) {
                     SelectionKey key = iterator.next();
                     if (key.isAcceptable()) {
-                        System.out.println("Accepted client socket");
                         System.out.println("Channel: " + key.channel());
+                        ServerSocketChannel channel = (ServerSocketChannel) key.channel();
+                        SocketChannel socketChannel = channel.accept();
+                        socketChannel.configureBlocking(false);
+                        System.out.println("Accepted client socket");
+                        socketChannel.register(serverSelector, SelectionKey.OP_READ);
+                        System.out.println("Socket configured and registered");
+                    } else if (key.isReadable()) {
+                        SocketChannel socketChannel = (SocketChannel) key.channel();
+
+                        while (true) {
+                            echoBuffer.clear();
+                            int read = socketChannel.read(echoBuffer);
+                            if (read <= 0) {
+                                break;
+                            }
+                            echoBuffer.flip();
+                            socketChannel.write(echoBuffer);
+                        }
                     }
                     iterator.remove();
                 }
