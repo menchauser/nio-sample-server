@@ -16,16 +16,16 @@
 
 package karanashev.niosampleserver;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Author: MUKA0210,
@@ -35,6 +35,8 @@ import java.util.Set;
 public class EchoServer {
     private final int port;
     private final ByteBuffer echoBuffer = ByteBuffer.allocate(1024);
+    private final Map<Integer, byte[]> echoCache = new HashMap<>();
+    private final AtomicInteger clientCounter = new AtomicInteger(1);
 
     public EchoServer(int port) {
         this.port = port;
@@ -64,21 +66,42 @@ public class EchoServer {
                         SocketChannel socketChannel = channel.accept();
                         socketChannel.configureBlocking(false);
                         System.out.println("Accepted client socket");
-                        socketChannel.register(serverSelector, SelectionKey.OP_READ);
+                        socketChannel.register(serverSelector, SelectionKey.OP_READ, clientCounter.getAndIncrement());
                         System.out.println("Socket configured and registered");
                     } else if (key.isReadable()) {
+                        System.out.println("Reading data from channel: " + key.channel());
+                        Integer clientNumber = (Integer) key.attachment();
+                        System.out.println("Client number: " + clientNumber);
                         SocketChannel socketChannel = (SocketChannel) key.channel();
 
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                        WritableByteChannel readBufferChannel = Channels.newChannel(bos);
                         while (true) {
                             echoBuffer.clear();
                             int read = socketChannel.read(echoBuffer);
+
                             if (read <= 0) {
                                 break;
                             }
                             echoBuffer.flip();
+
+                            readBufferChannel.write(echoBuffer);
+
                             // TODO: write in non-blocking way too
-                            socketChannel.write(echoBuffer);
+                            //socketChannel.write(echoBuffer);
                         }
+                        System.out.println("Data read");
+                        echoCache.put(clientNumber, bos.toByteArray());
+                        System.out.println("Data stored in cache");
+                        socketChannel.register(serverSelector, SelectionKey.OP_WRITE, clientNumber);
+                        System.out.println("Write to socket scheduled");
+                    } else if (key.isWritable()) {
+                        System.out.println("Writing data to channel: " + key.channel());
+                        Integer clientNumber = (Integer) key.attachment();
+                        System.out.println("Client number: " + clientNumber);
+                        SocketChannel socketChannel = (SocketChannel) key.channel();
+                        ByteBuffer echoResult = ByteBuffer.wrap(echoCache.get(clientNumber));
+                        socketChannel.write(echoResult);
                     }
                     iterator.remove();
                 }
