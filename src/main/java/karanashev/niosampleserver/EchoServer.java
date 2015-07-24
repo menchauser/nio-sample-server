@@ -16,17 +16,52 @@
 
 package karanashev.niosampleserver;
 
-import org.joda.time.LocalTime;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.util.Iterator;
+import java.util.Set;
 
 /**
  * Author: MUKA0210,
  * Date: 24.07.2015
  * <br />
  */
-public class Hello {
-    public static void main(String[] args) {
-        LocalTime currentTime = LocalTime.now();
-        System.out.println("Hi. Current time: " + currentTime);
+public class EchoServer {
+    private final int port;
+
+    public EchoServer(int port) {
+        this.port = port;
+    }
+
+    public void start() throws IOException {
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.bind(new InetSocketAddress(port));
+        serverSocketChannel.configureBlocking(false);
+        Selector serverSelector = Selector.open();
+        serverSocketChannel.register(serverSelector, SelectionKey.OP_ACCEPT);
+        System.out.println("Server started");
+
+        while (true) {
+            int channelsCount = serverSelector.select();
+
+            if (channelsCount > 0) {
+                Set<SelectionKey> selectedKeys = serverSelector.selectedKeys();
+                System.out.println("Selected " + selectedKeys.size() + " keys");
+
+                Iterator<SelectionKey> iterator = selectedKeys.iterator();
+                while (iterator.hasNext()) {
+                    SelectionKey key = iterator.next();
+                    if (key.isAcceptable()) {
+                        System.out.println("Accepted client socket");
+                        System.out.println("Channel: " + key.channel());
+                    }
+                    iterator.remove();
+                }
+            }
+        }
     }
 }
 /*

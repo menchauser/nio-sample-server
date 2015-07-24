@@ -6,7 +6,7 @@ apply plugin: 'java'
 sourceCompatibility = 1.7
 
 apply plugin: 'application'
-mainClassName = 'karanashev.niosampleserver.Hello'
+mainClassName = 'karanashev.niosampleserver.Application'
 
 repositories {
     mavenCentral()
