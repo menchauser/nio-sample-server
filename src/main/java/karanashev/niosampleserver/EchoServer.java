@@ -76,6 +76,7 @@ public class EchoServer {
                                 break;
                             }
                             echoBuffer.flip();
+                            // TODO: write in non-blocking way too
                             socketChannel.write(echoBuffer);
                         }
                     }
